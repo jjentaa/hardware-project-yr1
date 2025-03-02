@@ -1,0 +1,76 @@
+from machine import Pin, I2C, PWM, ADC
+import random, time, esp32_s3
+import math
+# import ssd1306
+
+def current_ms():
+    return time.time_ns() // 1000000
+
+def check_button(last_state):
+    if esp.sw.value() == 0 and esp.sw.value() != last_state:
+        return True
+    return False
+
+# using default address 0x3C
+esp = esp32_s3.ESP32_S3(r=42, y=41, g=40, ldr=4, sw=2, sda=48, scl=47, PWM_FREQ=5000)
+
+TIME = 60 # ---------------- GENERAL BOMB TIME
+TIME_PRECISION = 0.2
+STRIKE = 0
+time_limit = 2000
+sequences = []
+sw_sequences = []
+levels = random.randint(5, 7)
+
+esp.clearled()
+last_time = current_ms()
+last_state = esp.sw.value()
+while len(sequences) < levels:
+    if sw_sequences == sequences:
+        rand = random.randint(0, 2) # ------------------ change to (0, 3)
+        sequences.append(rand)
+        
+    sw_sequences = []
+    print(sequences)
+    
+    for seq in sequences:
+        if seq == 0:
+            esp.red(255)
+        
+        elif seq == 1:
+            esp.yellow(255)
+            
+        elif seq == 2:
+            esp.green(255)
+        
+#         elif seq ==3:
+#             esp.blue(255) # --------------- 4th LEDs
+        
+        time.sleep(0.3)
+        TIME -= 0.3
+        esp.clearled()
+        time.sleep(0.5)
+        TIME -= 0.5
+    
+    if len(sequences)*1000 >= 2000:     
+        time_limit = len(sequences)*1000
+        
+    last_time = current_ms()
+    check_time = current_ms()
+    time_left = (time_limit - (current_ms() - last_time))/1000
+    
+    while current_ms() - last_time <= time_limit: # ------------ SHOW TIME ON SCREEN WHILE CHECKING FOR PRESSING BUTTONS
+        if check_button(last_state):
+            sw_sequences.append(0)
+            print(sw_sequences)
+        last_state = esp.sw.value()
+        
+        if current_ms() - check_time >= TIME_PRECISION * 1000:
+            text = f'{time_left:.2f}'
+#             print(text) # --------------------------------------- SHOW TIME ON SCREEN
+            # esp.oled.text(text,60-len(text)*3,30,1) -- SHOW TIME ON SCREEN
+            TIME -= TIME_PRECISION
+            time_left = (time_limit - (current_ms() - last_time))/1000
+            check_time = current_ms()
+    if sw_sequences != sequences:
+        STRIKE += 1
