@@ -6,7 +6,7 @@ import time
 from esp32_s3 import ESP32_S3
 from joystick_jane import Joystick
 
-s_time = time.time()
+s_time = time.ticks_ms()
 
 joy = Joystick()
 
