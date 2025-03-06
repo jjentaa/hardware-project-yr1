@@ -10,6 +10,9 @@ class FourButton:
         self.button3 = Pin(adc_pin3, Pin.IN, Pin.PULL_UP) # green
         self.button4 = Pin(adc_pin4, Pin.IN, Pin.PULL_UP) # blue
 
+    def get_value(self):
+        return [self.button1.value(), self.button2.value(), self.button3.value(), self.button4.value()]
+
     def check_press(self):
         state = []
         start_time = time.time()
