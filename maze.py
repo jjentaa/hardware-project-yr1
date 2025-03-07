@@ -6,6 +6,7 @@ import time
 from complexbutton import ComplexButton
 
 esp = esp32_s3.ESP32_S3(r=42, y=41, g=40, ldr=4, sw=2, sda=48, scl=47, PWM_FREQ=5000)
+tm = ComplexButton()
 
 # Maze patterns (4x4 grid with movement constraints)
 maze_patterns = [
@@ -158,6 +159,9 @@ def game_loop():
                 if 0 <= new_x < 4 and 0 <= new_y < 4:
                     move_to(new_x, new_y)
                     if (player_x, player_y) == (goal_x, goal_y):
+                        esp.oled.fill(0)
+                        esp.oled.text("Congratulations!", 0, 32, 1)
+                        esp.oled.show()
                         break
                 else:
                     print("Out of bounds!")
@@ -166,5 +170,4 @@ def game_loop():
             
 
 # Start game loop
-tm = ComplexButton(10, 12, 11)
 game_loop()
