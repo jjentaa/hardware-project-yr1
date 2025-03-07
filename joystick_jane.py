@@ -4,10 +4,10 @@ import ssd1306
 from machine import ADC, Pin
 
 class Joystick:
-    def __init__(self, x_pin, y_pin, s_pin):
-        self.joystick_x = ADC(Pin(4))  # X-axis
-        self.joystick_y = ADC(Pin(5))  # Y-axis
-        self.button = Pin(6, Pin.IN, Pin.PULL_UP)  # Button (active LOW)
+    def __init__(self, x_pin=16, y_pin=17, s_pin=15):
+        self.joystick_x = ADC(Pin(x_pin))  # X-axis
+        self.joystick_y = ADC(Pin(y_pin))  # Y-axis
+        self.button = Pin(s_pin, Pin.IN, Pin.PULL_UP)  # Button (active LOW)
 
         self.joystick_x.atten(ADC.ATTN_11DB)
         self.joystick_y.atten(ADC.ATTN_11DB)
@@ -15,14 +15,36 @@ class Joystick:
     def get_value(self):
         return [self.joystick_x.read(), self.joystick_y.read(), self.button.value()]
     
-    def check_direction(self, x, y):
+    def check_direction(self, x_val, y_val, center=2000, deadzone=350):
         # mean (3010, 3060)
-        self.mid_x = 3010
-        self.mid_y = 3060
-        dx = x - self.mid_y
-        dy = y - self.mid_y
-        
-        if abs(dx) > abs(dy):
-            return "right" if dx > 0 else "left"
+        if x_val < center - deadzone:
+            x_dir = -1
+        elif x_val > center + deadzone:
+            x_dir = +1
         else:
-            return "down" if dy > 0 else "up"
+            x_dir = 0
+
+        if y_val < center - deadzone:
+            y_dir = -1
+        elif y_val > center + deadzone:
+            y_dir = +1
+        else:
+            y_dir = 0
+            
+        if x_dir<0:
+            xx = "Right"
+        else:
+            if(x_dir>0):
+                xx = "Left"
+            else:
+                xx = "CenterX"
+            
+        if y_dir<0:
+            yy = "Down"
+        else:
+            if(y_dir>0):
+                yy = "Up"
+            else:
+                yy = "CenterY"
+        
+        return [xx, yy]
