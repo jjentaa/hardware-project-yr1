@@ -1,76 +1,251 @@
 from machine import Pin, I2C, PWM, ADC
-import random, time, esp32_s3
-import math
-# import ssd1306
+import ssd1306, time, random
+import esp32_s3
+from tm1637 import TM1637
 
-def current_ms():
-    return time.time_ns() // 1000000
+class SimonLeds:
+    def __init__(self, r=9, y=10, g=45, b=21, PWM_FREQ=5000):
+        self._r = PWM(Pin(r))
+        self._y = PWM(Pin(y))
+        self._g = PWM(Pin(g))
+        self._b = PWM(Pin(b))
 
-def check_button(last_state):
-    if esp.sw.value() == 0 and esp.sw.value() != last_state:
-        return True
-    return False
-
-# using default address 0x3C
-esp = esp32_s3.ESP32_S3(r=42, y=41, g=40, ldr=4, sw=2, sda=48, scl=47, PWM_FREQ=5000)
-
-TIME = 60 # ---------------- GENERAL BOMB TIME
-TIME_PRECISION = 0.2
-STRIKE = 0
-time_limit = 2000
-sequences = []
-sw_sequences = []
-levels = random.randint(5, 7)
-
-esp.clearled()
-last_time = current_ms()
-last_state = esp.sw.value()
-while len(sequences) < levels:
-    if sw_sequences == sequences:
-        rand = random.randint(0, 2) # ------------------ change to (0, 3)
-        sequences.append(rand)
+        self._r.init(freq=PWM_FREQ)
+        self._y.init(freq=PWM_FREQ)
+        self._g.init(freq=PWM_FREQ)
+        self._b.init(freq=PWM_FREQ)
         
-    sw_sequences = []
-    print(sequences)
+        self.clear()
     
-    for seq in sequences:
-        if seq == 0:
-            esp.red(255)
+    def red(self, duty=255):
+        self._r.duty(duty)
+    
+    def yellow(self, duty=255):
+        self._y.duty(duty)
         
-        elif seq == 1:
-            esp.yellow(255)
+    def green(self, duty=255):
+        self._g.duty(duty)
+        
+    def blue(self, duty=255):
+        self._b.duty(duty)
+        
+    def clear(self):
+        self.red(0)
+        self.yellow(0)
+        self.green(0)
+        self.blue(0)
+
+class FourButton:
+    def __init__(self, pin1, pin2, pin3, pin4):
+        self.button1 = Pin(pin1, Pin.IN, Pin.PULL_UP)  # red
+        self.button2 = Pin(pin2, Pin.IN, Pin.PULL_UP)  # yellow
+        self.button3 = Pin(pin3, Pin.IN, Pin.PULL_UP)  # green
+        self.button4 = Pin(pin4, Pin.IN, Pin.PULL_UP)  # blue
+        
+        self.last_state = [1, 1, 1, 1]
+        self.last_press_time = [0, 0, 0, 0]
+        self.debounce_time = 200  # ms debounce
+    
+    def read(self):
+        current_time = time.ticks_ms()
+        states = [self.button1.value(), self.button2.value(), self.button3.value(), self.button4.value()]
+        results = [False, False, False, False]
+        
+        for i in range(4):
+            if states[i] == 0 and self.last_state[i] == 1:
+                if time.ticks_diff(current_time, self.last_press_time[i]) > self.debounce_time:
+                    results[i] = True
+                    self.last_press_time[i] = current_time
             
-        elif seq == 2:
-            esp.green(255)
+            self.last_state[i] = states[i]
+#             print(states, results)
         
-#         elif seq ==3:
-#             esp.blue(255) # --------------- 4th LEDs
-        
-        time.sleep(0.3)
-        TIME -= 0.3
-        esp.clearled()
-        time.sleep(0.5)
-        TIME -= 0.5
+        return results
+
+# Main game setup
+esp = esp32_s3.ESP32_S3(r=42, y=41, g=40, ldr=4, sw=2, sda=48, scl=47, PWM_FREQ=5000)
+simon_leds = SimonLeds(r=9, y=10, g=45, b=21)
+buttons = FourButton(5, 6, 8, 18)  # Adjust pin numbers as needed
+tm = TM1637(12, 11)  # tm1637 display pins
+
+# Game configuration
+GAME_TIME = 60  # seconds
+TIME_PRECISION = 0.1
+MAX_STRIKES = 3
+strikes = 0
+level = 1
+max_level = 7
+
+# Game state variables
+sequences = []
+player_input = []
+pattern_timer = 0
+display_led_index = 0
+display_led_state = False
+input_timeout = 0
+flash_timer = 0
+game_state = "sequence"  # sequence, input, success, fail, gameover
+
+led_functions = [simon_leds.red, simon_leds.yellow, simon_leds.green, simon_leds.blue]
+
+# Game initialization
+sequences.append(random.randint(0, 3))
+remaining_time = GAME_TIME
+last_update_time = time.ticks_ms()
+pattern_timer = time.ticks_ms()
+display_led_index = 0
+display_led_state = False
+
+def update_display(remaining_time):
+    # Update 7-segment display
+    minutes = int(remaining_time) // 60
+    seconds = int(remaining_time) % 60
+    tm.clear()
+    tm.show(f"{minutes:02d}{seconds:02d}", 1)
     
-    if len(sequences)*1000 >= 2000:     
-        time_limit = len(sequences)*1000
-        
-    last_time = current_ms()
-    check_time = current_ms()
-    time_left = (time_limit - (current_ms() - last_time))/1000
+    # Update OLED with minimal information
+    esp.oled.fill(0)
+    esp.oled.rect(0, 0, 128, 64, 1)  # Border
+    esp.oled.text(f"Level: {level}", 10, 10, 1)
+    esp.oled.text(f"Strikes: {strikes}/{MAX_STRIKES}", 10, 25, 1)
     
-    while current_ms() - last_time <= time_limit: # ------------ SHOW TIME ON SCREEN WHILE CHECKING FOR PRESSING BUTTONS
-        if check_button(last_state):
-            sw_sequences.append(0)
-            print(sw_sequences)
-        last_state = esp.sw.value()
+    if game_state == "fail":
+        esp.oled.text("WRONG!", 40, 45, 1)
+    elif game_state == "success":
+        esp.oled.text("CORRECT!", 35, 45, 1)
+    elif game_state == "gameover":
+        if level > max_level:
+            esp.oled.text("YOU WIN!", 35, 45, 1)
+        else:
+            esp.oled.text("GAME OVER", 30, 45, 1)
+            
+    esp.oled.show()
+
+# Main game loop
+while True:
+    current_time = time.ticks_ms()
+    
+    # Update time
+    if time.ticks_diff(current_time, last_update_time) >= TIME_PRECISION * 1000:
+        remaining_time -= TIME_PRECISION
+        last_update_time = current_time
         
-        if current_ms() - check_time >= TIME_PRECISION * 1000:
-            text = f'{time_left:.2f}'
-#             print(text) # --------------------------------------- SHOW TIME ON SCREEN
-            # esp.oled.text(text,60-len(text)*3,30,1) -- SHOW TIME ON SCREEN
-            TIME -= TIME_PRECISION
-            time_left = (time_limit - (current_ms() - last_time))/1000
-            check_time = current_ms()
-    if sw_sequences != sequences:
-        STRIKE += 1
+        if remaining_time <= 0:
+            game_state = "gameover"
+            remaining_time = 0
+    
+    # State machine
+    if game_state == "sequence":
+        # Display the sequence: beep each LED only once
+        if display_led_state:  # LED is currently on
+            if time.ticks_diff(current_time, pattern_timer) > 300:
+                simon_leds.clear()
+                display_led_state = False
+                pattern_timer = current_time
+        else:  # LED is off, wait before next LED
+            if time.ticks_diff(current_time, pattern_timer) > 200:
+                if display_led_index < len(sequences):
+                    # Show the next LED once
+                    led_functions[sequences[display_led_index]](255)
+                    display_led_state = True
+                    pattern_timer = current_time
+                    display_led_index += 1
+                else:
+                    # Sequence display complete, move to input state
+                    game_state = "input"
+                    player_input = []
+                    input_timeout = current_time
+                    simon_leds.clear()
+    
+    elif game_state == "input":
+        # Accumulate button presses without immediate evaluation
+        button_presses = buttons.read()
+        
+        for i in range(4):
+            if button_presses[i]:
+                # Flash the LED for this button
+                led_functions[i](255)
+                flash_timer = current_time
+                
+                # Only add the press if we haven't reached the sequence length
+                if len(player_input) < len(sequences):
+                    player_input.append(i)
+                    input_timeout = current_time  # reset timeout on valid press
+        
+        # Turn off LED after brief flash
+        if time.ticks_diff(current_time, flash_timer) > 200:
+            simon_leds.clear()
+        
+        # Once the full sequence is entered, evaluate the answer
+        if len(player_input) == len(sequences):
+            if player_input == sequences:
+                level += 1
+                game_state = "success"
+                pattern_timer = current_time
+            else:
+                strikes += 1
+                game_state = "fail"
+                pattern_timer = current_time
+        
+        # Check for input timeout
+        if time.ticks_diff(current_time, input_timeout) > 5000:
+            strikes += 1
+            game_state = "fail"
+            pattern_timer = current_time
+    
+    elif game_state == "success":
+        if time.ticks_diff(current_time, pattern_timer) > 1000:
+            if level > max_level:
+                game_state = "gameover"
+            else:
+                sequences.append(random.randint(0, 3))
+                game_state = "sequence"
+                pattern_timer = current_time
+                display_led_index = 0
+                display_led_state = False  # Start fresh for sequence display
+    
+    elif game_state == "fail":
+        if time.ticks_diff(current_time, pattern_timer) > 1000:
+            if strikes >= MAX_STRIKES:
+                game_state = "gameover"
+            else:
+                # Replay the same sequence
+                game_state = "sequence"
+                pattern_timer = current_time
+                display_led_index = 0
+                display_led_state = False
+                player_input = []
+    
+    elif game_state == "gameover":
+        # Simple flashing for game over
+        if time.ticks_diff(current_time, flash_timer) > 300:
+            if level > max_level:  # Win: cycle through LEDs
+                flash_index = (time.ticks_ms() // 300) % 4
+                simon_leds.clear()
+                led_functions[flash_index](255)
+            else:  # Loss: flash red
+                if simon_leds._r.duty() > 0:
+                    simon_leds.clear()
+                else:
+                    simon_leds.red(255)
+            flash_timer = current_time
+    
+        # Check for restart
+        button_presses = buttons.read()
+        if any(button_presses):
+            # Reset game
+            game_state = "sequence"
+            sequences = [random.randint(0, 3)]
+            player_input = []
+            level = 1
+            strikes = 0
+            pattern_timer = time.ticks_ms()
+            display_led_index = 0
+            display_led_state = False
+            flash_timer = time.ticks_ms()
+            remaining_time = GAME_TIME
+            last_update_time = time.ticks_ms()
+    
+    # Update displays
+    update_display(remaining_time)
+
