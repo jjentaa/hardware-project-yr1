@@ -42,9 +42,11 @@ _SEGMENTS = bytearray(b'\x3F\x06\x5B\x4F\x66\x6D\x7D\x07\x7F\x6F\x77\x7C\x39\x5E
 
 class TM1637(object):
     """Library for quad 7-segment LED modules based on the TM1637 LED driver."""
-    def __init__(self, clk, dio, brightness=7):
-        self.clk = clk
-        self.dio = dio
+    def __init__(self, clk=12, dio=11, brightness=7):
+        self.clk = Pin(clk
+)
+        self.dio = Pin(dio
+)
 
         if not 0 <= brightness <= 7:
             raise ValueError("Brightness out of range")
@@ -124,6 +126,10 @@ class TM1637(object):
             self._write_byte(seg)
         self._stop()
         self._write_dsp_ctrl()
+        
+
+    def clear(self):
+        self.write([0, 0, 0, 0])
 
     def encode_digit(self, digit):
         """Convert a character 0-9, a-f to a segment."""
