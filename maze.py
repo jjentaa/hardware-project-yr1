@@ -2,6 +2,8 @@ from machine import Pin, I2C
 import esp32_s3
 import ssd1306
 import random
+import time
+from complexbutton import ComplexButton
 
 esp = esp32_s3.ESP32_S3(r=42, y=41, g=40, ldr=4, sw=2, sda=48, scl=47, PWM_FREQ=5000)
 
@@ -100,6 +102,9 @@ def move_to(new_x, new_y):
         if (player_x, player_y) == (goal_x, goal_y):
             print("You reached the goal!")
     else:
+        esp.oled.text("Invalid", 70, 20, 1)
+        esp.oled.text("move!", 80, 30, 1)
+        esp.oled.show()
         print("Invalid move!")
 
 # Update OLED display
@@ -115,22 +120,22 @@ def update_display():
         for col in range(4):
             x, y = col * cell_size + margin, row * cell_size + margin  # Centered position for each cell
 
-            # Draw the grid cell (dot for empty cells)
-            esp.oled.fill_rect(x, y, 4, 4, 1)  # Small dot for each cell
-
-            # If the current cell is the player's position
-            if (row, col) == (player_y, player_x):
-                esp.oled.fill_rect(x - 4, y - 4, 12, 12, 1)  # Draw a filled rectangle for the player
-
             # If the current cell is the goal
-            elif (row, col) == (goal_y, goal_x):
-                esp.oled.text("X", x + 3, y + 3, 1)  # Draw "X" for the goal
+            if (col, row) == (goal_x, goal_y):
+                esp.oled.text("X", x-2, y-2, 1)  # Draw "X" for the goal
+                
+            elif (col, row) == (player_x, player_y):
+                esp.oled.fill_rect(x - 4, y - 4, 12, 12, 1)  # Draw a filled rectangle for the player
+            
+            # Draw the grid cell (dot for empty cells)
+            else:
+                esp.oled.fill_rect(x, y, 4, 4, 1)  # Small dot for each cell
 
             # Draw an ellipse (simulating a circle) around cells that match recog_patterns
             for pattern in recog:
-                if (row, col) == pattern:
+                if (col, row) == pattern:
                     # Draw ellipse with equal width and height to simulate a circle
-                    esp.oled.ellipse(x + 6, y + 6, 7, 7, 1)  # Width and height are the same for a circle
+                    esp.oled.ellipse(x + 2, y + 2, 7, 7, 1)  # Width and height are the same for a circle
 
     esp.oled.show()  # Update the OLED display
 
@@ -142,18 +147,24 @@ def game_loop():
     print(f'Start:({player_x},{player_y})\nEnd:({goal_x},{goal_y})')
     update_display()  # Initial render
     
+    xy = tm.get_xy()
+    old_xy = xy
     while True:
-        try:
-            move = input("Enter position (row,col): ")
-            new_x, new_y = map(int, move.split(","))
-            if 0 <= new_x < 4 and 0 <= new_y < 4:
-                move_to(new_x, new_y)
-                if (player_x, player_y) == (goal_x, goal_y):
-                    break
-            else:
-                print("Out of bounds!")
-        except Exception:
-            print("Invalid input! Use format: row,col (e.g., 1,2)")
+        xy = tm.get_xy()
+        if xy and xy != old_xy:
+            old_xy = xy
+            try:
+                new_x, new_y = xy
+                if 0 <= new_x < 4 and 0 <= new_y < 4:
+                    move_to(new_x, new_y)
+                    if (player_x, player_y) == (goal_x, goal_y):
+                        break
+                else:
+                    print("Out of bounds!")
+            except Exception:
+                print("Invalid input! Use format: row,col (e.g., 1,2)")
+            
 
 # Start game loop
+tm = ComplexButton(10, 12, 11)
 game_loop()
