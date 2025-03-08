@@ -1,19 +1,30 @@
 from machine import Pin, I2C, PWM, ADC
-import ssd1306
-import random
-import time
+import ssd1306, time, random
 
 from esp32_s3 import ESP32_S3
 from joystick import Joystick
-from complexbutton import ComplexButton
 
 # Initialize components
+esp = ESP32_S3(r=42, y=41, g=40, ldr=4, sw=2, sda=48, scl=47, PWM_FREQ=5000, board_id=2)
 joy = Joystick(x_invert=True)
-esp = ESP32_S3(r=42, y=41, g=40, ldr=4, sw=2, sda=48, scl=47, PWM_FREQ=5000)
-tm = ComplexButton(10, 12, 11)  # TM1637 display for timer
+
+if esp.board_id == 1:
+    from complexbutton import ComplexButton
+    
+    complexbutton = ComplexButton(10, 12, 11)
+    tm = complexbutton.tm
+    
+elif esp.board_id == 2:
+    from tm1637 import TM1637
+    from fourbutton import FourButton, FourLeds
+    
+    four_buttons = FourButton(5, 6, 18, 8)
+    four_leds = FourLeds(r=9, y=10, g=45, b=21)
+    tm = TM1637(12, 11)
+    
 
 # Game parameters
-TIME = 1  # General game time in seconds
+TIME = 100  # General game time in seconds
 TIME_PRECISION = 0.1  # Update timer every 0.1 seconds
 STRIKE = 0  # Track wrong answers
 STRIKE_LIMIT = 3  # Game over after 3 strikes
@@ -46,12 +57,21 @@ ans = {
     6:"Down"
 }
 
+def update_timer():
+    global TIME, check_time
+    if time.ticks_ms() - check_time >= TIME_PRECISION * 1000:
+        TIME -= TIME_PRECISION
+        check_time = time.ticks_ms()
+        display_time(TIME)
+
 def display_time(sec):
-    minute = sec // 60
+    minute = int(sec // 60)
     sec %= 60
-    sec = round(sec, 3)
-    tm.tm.clear()
-    tm.tm.show(f'{minute:02}{sec:02}', 7)
+    tm.clear()
+    if esp.board_id == 1:
+        tm.show(f'{minute:02.0f}{sec:02.1f}', 7)
+    elif esp.board_id == 2:
+        tm.show(f'{minute:02.0f}{sec:02.0f}', 1)
 
 def draw_progress_bar(level):
     # Draw a progress bar showing level progress (1-4)
@@ -81,12 +101,8 @@ show_strike_info(level)
 
 game_active = True
 while game_active and TIME > 0 and STRIKE < STRIKE_LIMIT and level <= total_levels:
-    # Update timer
-    if time.ticks_ms() - check_time >= TIME_PRECISION * 1000:
-        TIME -= TIME_PRECISION
-        check_time = time.ticks_ms()
-        display_time(TIME)
     
+    update_timer()
     # Select pattern based on level
     if level <= 2:
         pattern_set = pattern1
@@ -101,12 +117,10 @@ while game_active and TIME > 0 and STRIKE < STRIKE_LIMIT and level <= total_leve
         s_time = time.ticks_ms()
         while not passed and TIME > 0 and STRIKE < STRIKE_LIMIT:
             # Update timer continuously during game
-            if time.ticks_ms() - check_time >= TIME_PRECISION * 1000:
-                TIME -= TIME_PRECISION
-                check_time = time.ticks_ms()
-                display_time(TIME)
+            update_timer()
                 
             if TIME <= 0 or STRIKE >= STRIKE_LIMIT:
+                TIME = 0
                 break
                 
             # Handle light sequence
@@ -141,7 +155,6 @@ while game_active and TIME > 0 and STRIKE < STRIKE_LIMIT and level <= total_leve
             elif state == 'check-ans':
                 now = time.ticks_ms()
                 if now - s_time:
-                    d = joy.direction()
                     
                     if ans[pattern_num] in d:
                         passed = True
@@ -163,10 +176,7 @@ while game_active and TIME > 0 and STRIKE < STRIKE_LIMIT and level <= total_leve
                         error_start = time.ticks_ms()
                         while time.ticks_ms() - error_start < 1000:  # Show for 1 second
                             # Keep updating the timer during this time
-                            if time.ticks_ms() - check_time >= TIME_PRECISION * 1000:
-                                TIME -= TIME_PRECISION
-                                check_time = time.ticks_ms()
-                                display_time(TIME)
+                            update_timer()
                         
                         if STRIKE >= STRIKE_LIMIT:
                             break
@@ -189,12 +199,10 @@ while game_active and TIME > 0 and STRIKE < STRIKE_LIMIT and level <= total_leve
         s_time = time.ticks_ms()
         while not passed and TIME > 0 and STRIKE < STRIKE_LIMIT:
             # Update timer continuously during game
-            if time.ticks_ms() - check_time >= TIME_PRECISION * 1000:
-                TIME -= TIME_PRECISION
-                check_time = time.ticks_ms()
-                display_time(TIME)
+            update_timer()
                 
             if TIME <= 0 or STRIKE >= STRIKE_LIMIT:
+                TIME = 0
                 break
                 
             # Handle light sequence
@@ -244,7 +252,6 @@ while game_active and TIME > 0 and STRIKE < STRIKE_LIMIT and level <= total_leve
                 now = time.ticks_ms()
                 if now - s_time:
                     d = joy.direction()
-                    print(d)
                     
                     if ans[pattern_num] in d:
                         passed = True
@@ -266,12 +273,10 @@ while game_active and TIME > 0 and STRIKE < STRIKE_LIMIT and level <= total_leve
                         error_start = time.ticks_ms()
                         while time.ticks_ms() - error_start < 1000:  # Show for 1 second
                             # Keep updating the timer during this time
-                            if time.ticks_ms() - check_time >= TIME_PRECISION * 1000:
-                                TIME -= TIME_PRECISION
-                                check_time = time.ticks_ms()
-                                display_time(TIME)
+                            update_timer()
                         
                         if STRIKE >= STRIKE_LIMIT:
+                            TIME = 0
                             break
                         else:
                             show_strike_info(level)
@@ -281,11 +286,13 @@ while game_active and TIME > 0 and STRIKE < STRIKE_LIMIT and level <= total_leve
                             s_time = time.ticks_ms()
 
 # Game over screen
+display_time(TIME)
 esp.oled.fill(0)
-if TIME <= 0 or STRIKE >= STRIKE_LIMIT:
-    esp.oled.text("GAME OVER!", 25, 20, 1)
+if TIME > 0:
+    esp.oled.fill(0)
+    display_center("Passed", 30)
+    esp.oled.show()
 else:
-    esp.oled.text("GAME COMPLETE!", 15, 20, 1)
-
-esp.oled.text(f"Score: {correct}", 30, 40, 1)
-esp.oled.show()
+    esp.oled.fill(0)
+    display_center("Game over.", 30)
+    esp.oled.show()
