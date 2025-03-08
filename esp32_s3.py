@@ -3,7 +3,7 @@ import ssd1306
 
 class ESP32_S3:
     
-    def __init__(self, r=42, y=41, g=40, ldr=4, sw=2, sda=48, scl=7, PWM_FREQ=5000):
+    def __init__(self, r=42, y=41, g=40, ldr=4, sw=2, sda=48, scl=47, PWM_FREQ=5000):
         self._i2c = I2C(0, sda=Pin(sda), scl=Pin(scl))
         self.oled = ssd1306.SSD1306_I2C(128, 64, self._i2c)
         
