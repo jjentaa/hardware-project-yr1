@@ -1,12 +1,31 @@
-from machine import Pin, I2C
-import esp32_s3
-import ssd1306
-import random
-import time
-from complexbutton import ComplexButton
+from machine import Pin, I2C, PWM, ADC
+import ssd1306, random, time
 
-esp = esp32_s3.ESP32_S3(r=42, y=41, g=40, ldr=4, sw=2, sda=48, scl=47, PWM_FREQ=5000)
-tm = ComplexButton()
+from esp32_s3 import ESP32_S3
+from joystick import Joystick
+
+# Initialize components
+esp = ESP32_S3(r=42, y=41, g=40, ldr=4, sw=2, sda=48, scl=47, PWM_FREQ=5000, board_id=1)
+joy = Joystick(x_invert=True)
+
+if esp.board_id == 1:
+    from complexbutton import ComplexButton
+    
+    complexbutton = ComplexButton(10, 12, 11)
+    tm = complexbutton.tm
+    
+elif esp.board_id == 2:
+    from tm1637 import TM1637
+    from fourbutton import FourButton, FourLeds
+    
+    four_buttons = FourButton(5, 6, 18, 8)
+    four_leds = FourLeds(r=9, y=10, g=45, b=21)
+    tm = TM1637(12, 11)
+    
+TIME = 100 # ---------------- GENERAL BOMB TIME
+TIME_PRECISION = 0.1
+STRIKE = 0
+STRIKE_LIMIT = 3
 
 # Maze patterns (4x4 grid with movement constraints)
 maze_patterns = [
@@ -57,6 +76,18 @@ recog_patterns = {
     5: ((2,0), (3,3))
 }
 
+# Movement directions
+DIRECTIONS = {
+    (0, -1): 0b1000,  # Up (Decrease Y)
+    (0, 1): 0b0100,   # Down (Increase Y)
+    (-1, 0): 0b0010,  # Left (Decrease X)
+    (1, 0): 0b0001,   # Right (Increase X)
+    (0, 0): 0b1111	  # Center (Stay in place)
+}
+
+check_time = time.ticks_ms()
+last_time = time.ticks_ms()
+
 # Randomly choose a maze pattern
 rand = random.randint(0, 5)
 maze = maze_patterns[rand]
@@ -69,16 +100,27 @@ def get_random_positions():
         end = (random.randint(2, 3), random.randint(2, 3)) # Bottom RIght corner if possible
         if start != end:
             return start, end
+        
+def display_center(text, y=30):
+    esp.oled.text(text,60-len(text)*3,y,1)
+
+def update_timer():
+    global TIME, check_time
+    if time.ticks_ms() - check_time >= TIME_PRECISION * 1000:
+        TIME -= TIME_PRECISION
+        check_time = time.ticks_ms()
+        display_time(TIME)
+
+def display_time(sec):
+    minute = int(sec // 60)
+    sec %= 60
+    tm.clear()
+    if esp.board_id == 1:
+        tm.show(f'{minute:02.0f}{sec:02.1f}', 7)
+    elif esp.board_id == 2:
+        tm.show(f'{minute:02.0f}{sec:02.0f}', 1)
 
 (player_x, player_y), (goal_x, goal_y) = get_random_positions()
-
-# Movement directions
-DIRECTIONS = {
-    (0, -1): 0b1000,  # Up (Decrease Y)
-    (0, 1): 0b0100,   # Down (Increase Y)
-    (-1, 0): 0b0010,  # Left (Decrease X)
-    (1, 0): 0b0001   # Right (Increase X)
-}
 
 # Check if movement is valid
 def can_move(new_x, new_y):
@@ -94,18 +136,17 @@ def can_move(new_x, new_y):
 
 # Move player if valid
 def move_to(new_x, new_y):
-    global player_x, player_y
+    global player_x, player_y, STRIKE
 
     if can_move(new_x, new_y):
         player_x, player_y = new_x, new_y
         update_display()
 
-        if (player_x, player_y) == (goal_x, goal_y):
-            print("You reached the goal!")
     else:
         esp.oled.text("Invalid", 70, 20, 1)
         esp.oled.text("move!", 80, 30, 1)
         esp.oled.show()
+        STRIKE += 1
         print("Invalid move!")
 
 # Update OLED display
@@ -143,15 +184,17 @@ def update_display():
 
 # Game loop to read user input
 def game_loop():
+    global TIME
     print(f'rand = {rand}')
     print(f'recog = {recog}')
     print(f'Start:({player_x},{player_y})\nEnd:({goal_x},{goal_y})')
     update_display()  # Initial render
     
-    xy = tm.get_xy()
+    xy = complexbutton.get_xy()
     old_xy = xy
-    while True:
-        xy = tm.get_xy()
+    while TIME > 0:
+        update_timer()
+        xy = complexbutton.get_xy()
         if xy and xy != old_xy:
             old_xy = xy
             try:
@@ -159,10 +202,9 @@ def game_loop():
                 if 0 <= new_x < 4 and 0 <= new_y < 4:
                     move_to(new_x, new_y)
                     if (player_x, player_y) == (goal_x, goal_y):
-                        esp.oled.fill(0)
-                        esp.oled.text("Congratulations!", 0, 32, 1)
-                        esp.oled.show()
                         break
+                    if STRIKE >= STRIKE_LIMIT:
+                        TIME = 0
                 else:
                     print("Out of bounds!")
             except Exception:
@@ -171,3 +213,11 @@ def game_loop():
 
 # Start game loop
 game_loop()
+if TIME > 0:
+    esp.oled.fill(0)
+    display_center("Passed", 30)
+    esp.oled.show()
+else:
+    esp.oled.fill(0)
+    display_center("Game over.", 30)
+    esp.oled.show()
