@@ -3,9 +3,10 @@ import ssd1306
 
 class ESP32_S3:
     
-    def __init__(self, r=42, y=41, g=40, ldr=4, sw=2, sda=48, scl=47, PWM_FREQ=5000):
+    def __init__(self, r=42, y=41, g=40, p=21, ldr=4, sw=2, sda=48, scl=47, PWM_FREQ=5000, board_id=1):
         self._i2c = I2C(0, sda=Pin(sda), scl=Pin(scl))
         self.oled = ssd1306.SSD1306_I2C(128, 64, self._i2c)
+        self.board_id = board_id
         
         self._ldr = ADC(Pin(ldr))
         self._ldr.atten(ADC.ATTN_11DB)
@@ -15,10 +16,12 @@ class ESP32_S3:
         self._r = PWM(Pin(r))
         self._y = PWM(Pin(y))
         self._g = PWM(Pin(g))
+        self._p = PWM(Pin(p))
 
         self._r.init(freq=PWM_FREQ)
         self._y.init(freq=PWM_FREQ)
         self._g.init(freq=PWM_FREQ)
+        self._p.init(freq=PWM_FREQ)
         
         self.clearled()
     
@@ -31,10 +34,14 @@ class ESP32_S3:
     def green(self, duty=255):
         self._g.duty(duty)
         
+    def pink(self, duty=255):
+        self._p.duty(duty)
+        
     def clearled(self):
         self.red(0)
         self.yellow(0)
         self.green(0)
+        self.pink(0)
         
     def read_ldr(self, invert=True):
         val = self._ldr.read_uv()
@@ -55,6 +62,3 @@ class ESP32_S3:
     def raw_ldr(self):
         return self._ldr.read_uv()
     
-        
-    
-        
