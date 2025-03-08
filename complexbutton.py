@@ -1,6 +1,4 @@
 import time
-
-import ssd1306
 import tm1638
 from machine import ADC, Pin
 
@@ -29,7 +27,6 @@ class ComplexButton:
         for i in range(len(reverse)):
             if reverse[i] == '1':
                 return (i%4, i//4)
-        
 
     def check_pressed_switch(self):
         state = f"{self.tm.qyf_keys():016b}"    
