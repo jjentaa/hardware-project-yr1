@@ -311,7 +311,6 @@ class TM1638(object):
 
     def show(self, string, pos):
         b = self.format_string(string, pos)
-        print(b)
         self.write(b)
 
     def scroll(self, string, delay=250):
