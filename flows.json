@@ -1,0 +1,346 @@
+[
+    {
+        "id": "5fa2b21966de2f73",
+        "type": "tab",
+        "label": "Flow 1",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "node1",
+        "type": "mqtt in",
+        "z": "5fa2b21966de2f73",
+        "name": "Board 1 Switch",
+        "topic": "b6710504034/1/switch",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "30facff3f9ee4347",
+        "nl": false,
+        "rap": false,
+        "inputs": 0,
+        "x": 420,
+        "y": 180,
+        "wires": [
+            [
+                "node3"
+            ]
+        ]
+    },
+    {
+        "id": "node2",
+        "type": "mqtt in",
+        "z": "5fa2b21966de2f73",
+        "name": "Board 2 Switch",
+        "topic": "b6710504034/2/switch",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "30facff3f9ee4347",
+        "nl": false,
+        "rap": false,
+        "inputs": 0,
+        "x": 420,
+        "y": 280,
+        "wires": [
+            [
+                "node3"
+            ]
+        ]
+    },
+    {
+        "id": "node3",
+        "type": "join",
+        "z": "5fa2b21966de2f73",
+        "name": "Join Switch Status",
+        "mode": "custom",
+        "build": "object",
+        "property": "payload",
+        "propertyType": "msg",
+        "key": "topic",
+        "joiner": "",
+        "joinerType": "str",
+        "useparts": true,
+        "accumulate": false,
+        "timeout": "",
+        "count": "2",
+        "reduceRight": false,
+        "reduceExp": "",
+        "reduceInit": "",
+        "reduceInitType": "",
+        "reduceFixup": "",
+        "x": 700,
+        "y": 220,
+        "wires": [
+            [
+                "node4"
+            ]
+        ]
+    },
+    {
+        "id": "node4",
+        "type": "function",
+        "z": "5fa2b21966de2f73",
+        "name": "Check Both Ready",
+        "func": "if (msg.payload[\"b6710504034/1/switch\"] === 1 && msg.payload[\"b6710504034/2/switch\"] === 1) {\n    msg.topic = \"b6710504034/start\";\n    msg.payload = \"start\";\n    return msg;\n}\nreturn null;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 970,
+        "y": 220,
+        "wires": [
+            [
+                "node5"
+            ]
+        ]
+    },
+    {
+        "id": "node5",
+        "type": "mqtt out",
+        "z": "5fa2b21966de2f73",
+        "name": "Send Game Start",
+        "topic": "b6710504034/start",
+        "qos": "0",
+        "retain": "",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "30facff3f9ee4347",
+        "x": 1230,
+        "y": 220,
+        "wires": []
+    },
+    {
+        "id": "8f9a01c25ca8ee42",
+        "type": "ui_text",
+        "z": "5fa2b21966de2f73",
+        "group": "11f3e6c2e33d0703",
+        "order": 1,
+        "width": "6",
+        "height": "3",
+        "name": "",
+        "label": "Time Left",
+        "format": "{{msg.payload}}",
+        "layout": "col-center",
+        "className": "",
+        "style": true,
+        "font": "Arial,Arial,Helvetica,sans-serif",
+        "fontSize": "50",
+        "color": "#ff0000",
+        "x": 660,
+        "y": 440,
+        "wires": []
+    },
+    {
+        "id": "85177981cbbb793a",
+        "type": "mqtt in",
+        "z": "5fa2b21966de2f73",
+        "name": "",
+        "topic": "b6710504034/1/time",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "30facff3f9ee4347",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 430,
+        "y": 440,
+        "wires": [
+            [
+                "8f9a01c25ca8ee42"
+            ]
+        ]
+    },
+    {
+        "id": "833ef1eddb13f597",
+        "type": "mqtt in",
+        "z": "5fa2b21966de2f73",
+        "name": "",
+        "topic": "b6710504034/2/time",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "30facff3f9ee4347",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 430,
+        "y": 500,
+        "wires": [
+            [
+                "b0dba5ca4234cd8f"
+            ]
+        ]
+    },
+    {
+        "id": "9fe821c9a991d860",
+        "type": "ui_text",
+        "z": "5fa2b21966de2f73",
+        "group": "11f3e6c2e33d0703",
+        "order": 1,
+        "width": "6",
+        "height": "3",
+        "name": "",
+        "label": "Strikes",
+        "format": "{{msg.payload}}/3",
+        "layout": "col-center",
+        "className": "",
+        "style": true,
+        "font": "Arial,Arial,Helvetica,sans-serif",
+        "fontSize": "50",
+        "color": "#ff0000",
+        "x": 650,
+        "y": 600,
+        "wires": []
+    },
+    {
+        "id": "14ce53c8f6702dc9",
+        "type": "mqtt in",
+        "z": "5fa2b21966de2f73",
+        "name": "",
+        "topic": "b6710504034/1/strike",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "30facff3f9ee4347",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 440,
+        "y": 600,
+        "wires": [
+            [
+                "9fe821c9a991d860"
+            ]
+        ]
+    },
+    {
+        "id": "9253a433067c0d31",
+        "type": "mqtt in",
+        "z": "5fa2b21966de2f73",
+        "name": "",
+        "topic": "b6710504034/2/strike",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "30facff3f9ee4347",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 440,
+        "y": 660,
+        "wires": [
+            [
+                "87e8f4b1889bccc2"
+            ]
+        ]
+    },
+    {
+        "id": "b0dba5ca4234cd8f",
+        "type": "ui_text",
+        "z": "5fa2b21966de2f73",
+        "group": "d31f83efadf6c7f7",
+        "order": 1,
+        "width": "6",
+        "height": "3",
+        "name": "",
+        "label": "Time Left",
+        "format": "{{msg.payload}}",
+        "layout": "col-center",
+        "className": "",
+        "style": true,
+        "font": "Arial,Arial,Helvetica,sans-serif",
+        "fontSize": "50",
+        "color": "#ff0000",
+        "x": 660,
+        "y": 500,
+        "wires": []
+    },
+    {
+        "id": "87e8f4b1889bccc2",
+        "type": "ui_text",
+        "z": "5fa2b21966de2f73",
+        "group": "d31f83efadf6c7f7",
+        "order": 1,
+        "width": "6",
+        "height": "3",
+        "name": "",
+        "label": "Strikes",
+        "format": "{{msg.payload}}/3",
+        "layout": "col-center",
+        "className": "",
+        "style": true,
+        "font": "Arial,Arial,Helvetica,sans-serif",
+        "fontSize": "50",
+        "color": "#ff0000",
+        "x": 650,
+        "y": 660,
+        "wires": []
+    },
+    {
+        "id": "30facff3f9ee4347",
+        "type": "mqtt-broker",
+        "name": "MQTT Server",
+        "broker": "http://192.168.34.29",
+        "port": 1883,
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": 4,
+        "keepalive": 60,
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthRetain": "false",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closeRetain": "false",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willRetain": "false",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
+    {
+        "id": "11f3e6c2e33d0703",
+        "type": "ui_group",
+        "name": "Player 1",
+        "tab": "cd237c564acd0842",
+        "order": 2,
+        "disp": true,
+        "width": "6",
+        "collapse": false,
+        "className": ""
+    },
+    {
+        "id": "d31f83efadf6c7f7",
+        "type": "ui_group",
+        "name": "Player 2",
+        "tab": "cd237c564acd0842",
+        "order": 3,
+        "disp": true,
+        "width": 6,
+        "collapse": false,
+        "className": ""
+    },
+    {
+        "id": "cd237c564acd0842",
+        "type": "ui_tab",
+        "name": "Bomb",
+        "icon": "dashboard",
+        "disabled": false,
+        "hidden": false
+    }
+]
