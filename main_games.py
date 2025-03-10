@@ -13,7 +13,7 @@ from config import (
 from umqtt.simple import MQTTClient
 
 # Initialize components
-esp = ESP32_S3(r=42, y=41, g=40, ldr=4, sw=2, sda=48, scl=47, PWM_FREQ=5000, board_id=1)
+esp = ESP32_S3(r=42, y=41, g=40, ldr=4, sw=2, sda=48, scl=47, PWM_FREQ=5000, board_id=1) #--- CHANGE BOARD_ID
 joy = Joystick(x_invert=True)
 
 if esp.board_id == 1:
@@ -40,7 +40,7 @@ game_mode = 'manual' # Choose either 'normal', 'manual', 'demo' or else the game
 seed = None # Default: None, Can fix seed to get the same game, must be non-negative integers
 
 # Global variables
-TIME = 300  # 5 minutes in seconds
+TIME = 600  # 10 minutes in seconds
 STRIKE = 0
 STRIKE_LIMIT = 3
 TIME_PRECISION = 1
