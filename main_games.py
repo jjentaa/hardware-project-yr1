@@ -13,7 +13,7 @@ from config import (
 from umqtt.simple import MQTTClient
 
 # Initialize components
-esp = ESP32_S3(r=42, y=41, g=40, ldr=4, sw=2, sda=48, scl=47, PWM_FREQ=5000, board_id=1) #--- CHANGE BOARD_ID
+esp = ESP32_S3(r=42, y=41, g=40, ldr=4, sw=2, sda=48, scl=47, PWM_FREQ=5000, board_id=2) #--- CHANGE BOARD_ID
 joy = Joystick(x_invert=True)
 
 if esp.board_id == 1:
@@ -31,12 +31,13 @@ elif esp.board_id == 2:
 TOPIC_TIME = f'{TOPIC_PREFIX}/{esp.board_id}/time'
 TOPIC_STRIKE = f'{TOPIC_PREFIX}/{esp.board_id}/strike'
 TOPIC_SWITCH = f"{TOPIC_PREFIX}/{esp.board_id}/switch"
+TOPIC_SECRET_CODE = f"{TOPIC_PREFIX}/{esp.board_id}/secret_code"
 TOPIC_GENERAL = f'{TOPIC_PREFIX}/general'
 TOPIC_START = f'{TOPIC_PREFIX}/start'
 
 # GAME MODE SELECTION
 all_game_modes = ['normal', 'manual', 'demo']
-game_mode = 'manual' # Choose either 'normal', 'manual', 'demo' or else the game will start in 'normal' mode
+game_mode = 'normal' # Choose either 'normal', 'manual', 'demo' or else the game will start in 'normal' mode
 seed = None # Default: None, Can fix seed to get the same game, must be non-negative integers
 
 # Global variables
@@ -783,10 +784,13 @@ def wait_for_start():
         esp.oled.show()
         mqtt.check_msg()
         time.sleep(1)
-
+    
+    secret_code = random.randint(1234,9999)
+    mqtt.publish(TOPIC_SECRET_CODE, b"{secret_code}")
     for countdown in range(3, 0, -1):
         esp.oled.fill(0)
-        display_center(str(countdown))
+        display_center(str(countdown), 20)
+        display_center(str(secret_code), 30)
         esp.oled.show()
         time.sleep(1)
 
