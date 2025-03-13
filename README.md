@@ -48,3 +48,6 @@
 
 โดยเราจะรวมเกมทั้งหม และการทำ dashboard ใน `main_games.py`
 
+## Note
+- schematic ดูได้ที่ `schematic.pdf`
+- flow การทำงาน `Flowchart.pdf`
