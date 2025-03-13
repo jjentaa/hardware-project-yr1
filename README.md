@@ -51,3 +51,4 @@
 ## Note
 - schematic ดูได้ที่ `schematic.pdf`
 - flow การทำงาน `Flowchart.pdf`
+- set up MQTT using `config.py`
