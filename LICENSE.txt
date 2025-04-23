@@ -1,4 +1,4 @@
-Copyright (c) 2025 Jenta Wonglertsakul, 
+Copyright (c) 2025 Jenta Wonglertsakul, Patiphat Moungmaithong, Pittinan Wettayanon, Piyaphat Likitsathaporn
 
 MIT License
 
